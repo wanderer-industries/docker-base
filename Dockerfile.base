@@ -1,0 +1,22 @@
+ARG ELIXIR_VERSION=1.17.2
+ARG OTP_VERSION=27.0.1
+ARG DEBIAN_VERSION=bullseye-20240722-slim
+
+ARG BUILDER_IMAGE="hexpm/elixir:${ELIXIR_VERSION}-erlang-${OTP_VERSION}-debian-${DEBIAN_VERSION}"
+
+FROM ${BUILDER_IMAGE} as builder
+
+# install build dependencies
+RUN apt-get update -y && apt-get install -y curl build-essential git \
+    && apt-get clean && apt --fix-broken install && apt remove -y nodejs nodejs-doc && rm -f /var/lib/apt/lists/*_*
+
+RUN curl -sL https://deb.nodesource.com/setup_18.x  | bash -
+RUN apt install -yq nodejs
+RUN npm install --global yarn
+
+# prepare build dir
+WORKDIR /app
+
+# install hex + rebar
+RUN mix local.hex --force && \
+    mix local.rebar --force

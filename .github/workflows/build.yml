@@ -1,0 +1,114 @@
+name: 🛠 Build Docker Base Images
+
+on:
+  push:
+    branches:
+      - main
+      - "releases/*"
+env:
+  MIX_ENV: prod
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+
+jobs:
+  build-base:
+    name: 🛠 Build build base image
+    runs-on: ubuntu-22.04
+    if: ${{ github.event_name == 'push' }}
+    permissions:
+      contents: write
+      packages: write
+      attestations: write
+      id-token: write
+    steps:
+      - name: ⬇️ Checkout repo
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: build-meta
+        uses: docker/metadata-action@v5
+        with:
+          images: wandererltd/build-base
+
+      - name: Build and push Docker build base image
+        id: docker_build
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile.base
+          push: true
+          tags: wandererltd/build-base:latest
+          labels: ${{ steps.build-meta.outputs.labels }}
+          platforms: linux/amd64, linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            MIX_ENV=prod
+            ERL_FLAGS=+JMsingle true
+
+  runner-base:
+    name: 🛠 Build runner base image
+    runs-on: ubuntu-22.04
+    if: ${{ github.event_name == 'push' }}
+    permissions:
+      contents: write
+      packages: write
+      attestations: write
+      id-token: write
+    steps:
+      - name: ⬇️ Checkout repo
+        uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_USERNAME }}
+          password: ${{ secrets.DOCKER_PASSWORD }}
+
+      - name: Extract metadata (tags, labels) for Docker
+        id: runner-meta
+        uses: docker/metadata-action@v5
+        with:
+          images: wandererltd/runner-base
+
+      - name: Build and push Docker runner base image
+        id: runner-push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile.runner.base
+          push: true
+          tags: wandererltd/runner-base:latest
+          labels: ${{ steps.runner-meta.outputs.labels }}
+          platforms: linux/amd64, linux/arm64
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            MIX_ENV=prod
+            ERL_FLAGS=+JMsingle true
